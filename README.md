@@ -44,7 +44,5 @@ Users can open the sheet, send a message, see a “thinking…” state, and rec
 
 ```bash
 npm install
-npm run ios       # for iOS simulator
-npm run android   # for Android emulator
-npm start         # metro bundler only
-
+npx react-native run-ios
+npx react-native run-android
