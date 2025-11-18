@@ -1,6 +1,5 @@
 import React, {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
 } from 'react';
@@ -27,73 +26,80 @@ type BottomSheetChatProps = {
   onIndexChange: (index: number) => void;
 };
 
-const BottomSheetChat: React.FC<BottomSheetChatProps> = ({
-  index,
-  onIndexChange,
-}) => {
+export function BottomSheetChat({ index, onIndexChange }: BottomSheetChatProps) {
   const insets = useSafeAreaInsets();
   const bottomSheetRef = useRef<BottomSheet>(null);
   const listRef = useRef<BottomSheetFlatListMethods | null>(null);
-  const isAtBottomRef = useRef(true);
+  const autoScrollRef = useRef(true);
+  const viewportHeightRef = useRef(0);
+  const contentHeightRef = useRef(0);
 
-  const {
-    messages,
-    isSending,
-    handleSend,
-    handleFollowUpPress,
-  } = useChat();
+  const { messages, isSending, handleSend, handleFollowUpPress } = useChat();
 
-  const snapPoints = useMemo(() => ['20%', '60%', '90%'], []);
+  const snapPoints = useMemo(() => ['20%', '90%'], []);
+  const pendingResizeAdjustRef = useRef(false);
+
+  const handleInputFocus = useCallback(() => {
+    onIndexChange(1);
+  }, [onIndexChange]);
+
+  const handleInputBlur = useCallback(() => {
+    onIndexChange(0);
+  }, [onIndexChange]);
+
+ const handleSheetChange = useCallback(
+  (newIndex: number) => {
+    onIndexChange(newIndex);
+    if (autoScrollRef.current) {
+      pendingResizeAdjustRef.current = true;
+      }
+    },
+    [onIndexChange],
+  );
 
   const handleListScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { layoutMeasurement, contentOffset, contentSize } =
         event.nativeEvent;
-      const paddingToBottom = 90;
-      const isAtBottom =
-        layoutMeasurement.height + contentOffset.y >=
-        contentSize.height - paddingToBottom;
 
-      isAtBottomRef.current = isAtBottom;
+      // remember latest sizes for offset calculation
+      viewportHeightRef.current = layoutMeasurement.height;
+      contentHeightRef.current = contentSize.height;
+      const viewportBottom = layoutMeasurement.height + contentOffset.y;
+      // bottom of the *last message*, ignoring the invisible part of bottom padding
+      const lastMessageBottom = contentSize.height - FOOTER_HEIGHT;
+
+      autoScrollRef.current = viewportBottom >= lastMessageBottom;
     },
     [],
   );
 
-  useEffect(() => {
-    if (index === -1) {
-      bottomSheetRef.current?.close();
-    } else {
-      bottomSheetRef.current?.snapToIndex(index);
+  // when content height changes (new message), if we *should* auto-scroll,
+ const handleContentSizeChange = useCallback(
+  (_w: number, h: number) => {
+    contentHeightRef.current = h;
+
+    if (!autoScrollRef.current) return;
+
+    const viewportHeight = viewportHeightRef.current;
+    if (!viewportHeight) {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd?.({ animated: true });
+      });
+      return;
     }
-  }, [index]);
+    // Scroll so viewport bottom = content bottom.
+    const offset = Math.max(0, h - viewportHeight);
 
-  useEffect(() => {
-    if (!messages.length) return;
-    if (!isAtBottomRef.current) return;
-
-    listRef.current?.scrollToEnd?.({ animated: true });
-  }, [messages]);
-
-  const handleInputFocus = useCallback(() => {
-    onIndexChange(2); 
-  }, [onIndexChange]);
-
-  const handleInputBlur = useCallback(() => {
-    onIndexChange(1); 
-  }, [onIndexChange]);
-
-  const handleSheetChange = useCallback(
-    (newIndex: number) => {
-      onIndexChange(newIndex);
-
-      if (isAtBottomRef.current) {
-        requestAnimationFrame(() => {
-          listRef.current?.scrollToEnd?.({ animated: false });
-        });
-      }
-    },
-    [onIndexChange],
-  );
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({
+        offset,
+        animated: true,
+      });
+    });
+  },
+  [],
+);
 
   const renderMessageItem = useCallback(
     ({ item }: { item: Message }) => (
@@ -116,7 +122,6 @@ const BottomSheetChat: React.FC<BottomSheetChatProps> = ({
     [handleSend, isSending, handleInputFocus, handleInputBlur, insets.bottom],
   );
 
-  // keep natural order; 
   const listData = useMemo<Message[]>(() => messages, [messages]);
 
   return (
@@ -135,31 +140,32 @@ const BottomSheetChat: React.FC<BottomSheetChatProps> = ({
       bottomInset={0}
       footerComponent={renderFooter}
     >
-      <BottomSheetFlatList<Message>
-        ref={listRef}
-        data={listData}
-        keyExtractor={(item: Message) => item.id}
-        renderItem={renderMessageItem}
-        keyboardShouldPersistTaps="handled"
-        onScroll={handleListScroll}
-        scrollEventThrottle={16}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <Text style={styles.title}>Chat</Text>
-            <Text style={styles.subtitle}>
-              Ask a question and get a simulated reply.
-            </Text>
-          </View>
-        }
-        contentContainerStyle={[
-          styles.messagesContent,
-          {
-            paddingBottom: FOOTER_HEIGHT + (insets.bottom || 0),
-          },
-        ]}
-      />
+        <BottomSheetFlatList<Message>
+          ref={listRef}
+          data={listData}
+          keyExtractor={(item: Message) => item.id}
+          renderItem={renderMessageItem}
+          keyboardShouldPersistTaps="handled"
+          onScroll={handleListScroll}
+          scrollEventThrottle={16}
+          onContentSizeChange={handleContentSizeChange}
+          ListHeaderComponent={
+            <View style={styles.header}>
+              <Text style={styles.title}>Chat</Text>
+              <Text style={styles.subtitle}>
+                Ask a question and get a simulated reply.
+              </Text>
+            </View>
+          }
+          contentContainerStyle={[
+            styles.messagesContent,
+            {
+              paddingBottom: FOOTER_HEIGHT,
+            },
+          ]}
+        />
     </BottomSheet>
   );
-};
+}
 
 export default BottomSheetChat;

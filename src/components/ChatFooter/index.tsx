@@ -1,6 +1,6 @@
 import { BottomSheetFooterProps, BottomSheetFooter, BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { memo, useState, useCallback } from "react";
-import { View, TouchableOpacity, ActivityIndicator, Text, LayoutChangeEvent } from "react-native";
+import { View, TouchableOpacity, ActivityIndicator, Text } from "react-native";
 import { styles } from "../BottomSheetChat/styles";
 
 type ChatFooterProps = BottomSheetFooterProps & {
@@ -9,7 +9,6 @@ type ChatFooterProps = BottomSheetFooterProps & {
   isSending: boolean;
   onFocusInput: () => void;
   onBlurInput: () => void;
-  onLayoutFooter?: (height: number) => void;
 };
 
 export const ChatFooter = memo(function ChatFooter({
@@ -18,13 +17,10 @@ export const ChatFooter = memo(function ChatFooter({
   isSending,
   onFocusInput,
   onBlurInput,
-  onLayoutFooter,
   ...footerProps
 }: ChatFooterProps) {
   const [text, setText] = useState('');
-  const handleLayout = (e: LayoutChangeEvent) => {
-    onLayoutFooter?.(e.nativeEvent.layout.height);
-  };
+
   const handlePressSend = useCallback(() => {
     const trimmed = text.trim();
     if (!trimmed || isSending) return;
@@ -34,9 +30,7 @@ export const ChatFooter = memo(function ChatFooter({
 
   return (
     <BottomSheetFooter {...footerProps} bottomInset={0}>
-      <View
-         style={[styles.inputRow, { paddingBottom: bottomSafeInset }]}
-          onLayout={handleLayout} >
+      <View style={[styles.inputRow, { paddingBottom: bottomSafeInset }]} >
         <BottomSheetTextInput
           value={text}
           onChangeText={setText}

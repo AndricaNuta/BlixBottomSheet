@@ -1,5 +1,5 @@
 import { Message } from '../components/types/message';
-import { createFollowUps } from '../components/utils/createFollowUps';
+import { createFollowUps } from '../utils/createFollowUps';
 
 export type ChatServiceProps = {
   sendMessage(userText: string, requestId?: string): Promise<Message>;

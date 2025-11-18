@@ -9,6 +9,9 @@ export const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
   },
+  flexView: {
+    flex: 1,
+  },
   handle: {
     backgroundColor: '#4b5563',
     width: 40,
